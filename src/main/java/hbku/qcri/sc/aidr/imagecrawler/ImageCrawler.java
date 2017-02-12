@@ -267,8 +267,8 @@ public class ImageCrawler {
     public static void main(String args[]) throws ParseException, IOException {
         CommandLineParser parser = new BasicParser();
         Options options = new Options();
-        options.addOption("f", "folder", true, "Save image to the folder under the name of collection");
-        options.addOption("j", "json_file", true, "Json file of the collection");
+        options.addOption("f", "folder", true, "Save image to the folder under the name of collection.");
+        options.addOption("j", "json_file", true, "Json file of the collection.");
         options.addOption("m", "mode", true, "Run in parallel?");
 
         CommandLine commandLine = null;

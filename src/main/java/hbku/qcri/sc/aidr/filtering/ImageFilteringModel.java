@@ -77,7 +77,7 @@ public class ImageFilteringModel {
 		options.addOption("n", "num_examples", true, "Number of examples");
 		options.addOption("b", "batch_size", true, "batch_size");
 		options.addOption("i", "iterations", true, "interation");
-		options.addOption("l", "iterations", true, "learing rate");
+		options.addOption("l", "l_rate", true, "learing rate");
 		options.addOption("s", "saved_model", true, "saved_models");
 
 		CommandLine commandLine = parser.parse(options, args);

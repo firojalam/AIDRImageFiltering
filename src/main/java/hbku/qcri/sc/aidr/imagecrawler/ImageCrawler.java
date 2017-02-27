@@ -79,7 +79,13 @@ public class ImageCrawler {
         String url = "";
         int count = 0;
         while ((strLine = br.readLine()) != null) {
-            twt = parseDataFeed(strLine); // Get the tweet
+        	// throw an exception for bad file here
+        	try{
+        		twt = parseDataFeed(strLine); // Get the tweet
+        	}
+        	catch (Exception e){
+        		log.error(json_file + " has a format problem...!");
+        	}
             if (twt != null) {
                 url = twt.imageURL;
                 if (url.trim() != "") {
@@ -134,9 +140,8 @@ public class ImageCrawler {
                     final String formatName = FilenameUtils.getExtension(url.getPath());
                     String outFile = outDir + "/" + tweetID + "." + formatName;
                     final File outputfile = new File(outFile);
-                    log.info(urlStr);
+                    //log.info(urlStr);
                     Runnable worker = new Runnable() {
-                        @Override
                         public void run() {
                             try {
                                 downloadImage(url, outputfile, formatName);
@@ -202,15 +207,15 @@ public class ImageCrawler {
             BufferedImage image = ImageIO.read(in);
             if (image != null) {
                 ImageIO.write(image, formatName, outFile);
-                log.info("Image downloaded.");
+                //log.info("Image downloaded.");
             } else {
-                log.info("Image could not load." + url.getFile());
+                //log.info("Image could not load." + url.getFile());
 //                System.out.println(tweet.imageURL);
 //                System.out.println(tweet.expanedImageURL);
             }
         } catch (IOException ex) {
-            log.error("Error in downloading image.");
-            log.error(ex.getMessage());
+            //log.error("Error in downloading image.");
+            //log.error(ex.getMessage());
 //            System.out.println(tweet.imageURL);
 //            System.out.println(tweet.expanedImageURL);
 
@@ -220,7 +225,7 @@ public class ImageCrawler {
                     in.close();
                 } catch (IOException ex) {
                     // handle close failure
-                    log.error("Error in downloading image.");
+                    //log.error("Error in downloading image.");
                 }
             }
             if (con != null) {

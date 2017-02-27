@@ -4,11 +4,13 @@ import java.io.File;
 import java.io.IOException;
 
 import org.datavec.image.loader.NativeImageLoader;
+import org.datavec.image.transform.ImageTransform;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.deeplearning4j.util.ModelSerializer;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.api.preprocessor.DataNormalization;
 import org.nd4j.linalg.dataset.api.preprocessor.ImagePreProcessingScaler;
+import org.nd4j.linalg.dataset.api.preprocessor.NormalizerStandardize;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,14 +38,14 @@ public class ImageFilter {
 	}
 	
 	//doing binary classification for one image
-	public boolean doFilteringImage(String collection_id, String im_file) {
+	public boolean doClassify(String collection_id, String im_file) {
 		File file = new File(im_file);
 		NativeImageLoader loader = new NativeImageLoader(height, width, channels);
 		try {
 			INDArray image = loader.asMatrix(file);
-			//DataNormalization scaler = new NormalizerStandardize();
-			//ImageTransform myTransform =  new MyImageTransform(null, 121,121,122);
-			DataNormalization scaler = new ImagePreProcessingScaler(0,1);
+			
+			//using the image scale normalization 0 -255
+			DataNormalization scaler = new ImagePreProcessingScaler(0,255);
 	        scaler.transform(image);
 	        
 	        // Pass through to neural Net
@@ -53,8 +55,8 @@ public class ImageFilter {
 	        //System.out.println("A pass through network took: " + (endTime - startTime)/1000 + " seconds"); //measure performance 
 	        float p_l1 = output.getFloat(0);
 	        float p_l2 = output.getFloat(1);
-	        System.out.println(p_l1);
-	        System.out.println(p_l2);
+	        //System.out.println(p_l1);
+	        //System.out.println(p_l2);
 	        if(p_l1 > p_l2){ // the classified label is NEG
 	        	return false;
 	        }
@@ -68,10 +70,10 @@ public class ImageFilter {
 	}
 	
     public static void main(String args[]){
-    	String modelPath = "./gold_models/gold-model-alex-dl4j-ep-7.zip";
+    	String modelPath = "./gold_models/alex-dl4j-ep-7.zip";
     	ImageFilter filter = new ImageFilter(modelPath);
-    	System.out.println(filter.doFilteringImage("nepal_eq", "./im_data/POS/ecuador_eq_mild_im_89.jpg"));
-    	System.out.println(filter.doFilteringImage("nepal_eq", "./im_data/POS/ecuador_eq_mild_im_89.jpg"));
-    	System.out.println(filter.doFilteringImage("nepal_eq", "./im_data/POS/ecuador_eq_mild_im_89.jpg"));
+    	System.out.println(filter.doClassify("nepal_eq", "./test_img/581045846810169344.jpg"));
+    	System.out.println(filter.doClassify("nepal_eq", "./test_img/581046110665318400.png"));
+    	System.out.println(filter.doClassify("nepal_eq", "./test_img/581046449544130560.jpg"));
     }
 }

@@ -23,9 +23,6 @@ import org.slf4j.LoggerFactory;
 import org.apache.commons.cli.ParseException;
 
 
-
-
-
 public class ImageDownloader {
 	protected static final Logger log = LoggerFactory.getLogger(ImageDownloader.class);
 	

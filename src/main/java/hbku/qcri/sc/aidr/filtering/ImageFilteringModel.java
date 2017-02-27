@@ -1,5 +1,9 @@
 package hbku.qcri.sc.aidr.filtering;
 
+import org.apache.commons.cli.BasicParser;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.Options;
 import org.datavec.api.io.filters.BalancedPathFilter;
 import org.datavec.api.io.labels.ParentPathLabelGenerator;
 import org.datavec.api.split.FileSplit;
@@ -27,6 +31,7 @@ import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.DataSet;
 import org.nd4j.linalg.dataset.api.iterator.DataSetIterator;
 import org.nd4j.linalg.dataset.api.preprocessor.DataNormalization;
+import org.nd4j.linalg.dataset.api.preprocessor.ImagePreProcessingScaler;
 import org.nd4j.linalg.dataset.api.preprocessor.NormalizerStandardize;
 import org.nd4j.linalg.lossfunctions.LossFunctions;
 import org.slf4j.Logger;
@@ -45,25 +50,60 @@ public class ImageFilteringModel {
     protected static int height = 227;
     protected static int width = 227;
     protected static int channels = 3;
-    protected static int numExamples = 5600;
+    protected static int numExamples = 4000;
     protected static int numLabels = 2;
     protected static int batchSize = 64;
 
-    protected static long seed = 42;
+    protected static long seed = 113;
     protected static Random rng = new Random(seed);
     protected static int listenerFreq = 1;
     protected static int iterations = 2;
-    protected static int epochs = 10;
+    protected static int epochs = 30;
     protected static double splitTrainTest = 0.75;
-    protected static int nCores = 6;
+    protected static int nCores = 4;
     protected static boolean save = true;
-
+    
+    protected static double l_rate = 1e-2;
     protected static String modelType = "AlexNet"; // LeNet, AlexNet or Custom but you need to fill it out
 
     
 	public void run(String[] args) throws Exception {
 		//Nd4j.set
+		
+		//Parsing parameters
+		CommandLineParser parser = new BasicParser();
+		Options options = new Options();
+		options.addOption("d", "im_data", true, "dataset folder");
+		options.addOption("n", "num_examples", true, "Number of examples");
+		options.addOption("b", "batch_size", true, "batch_size");
+		options.addOption("i", "iterations", true, "interation");
+		options.addOption("l", "iterations", true, "learing rate");
+		options.addOption("s", "saved_model", true, "saved_models");
+
+		CommandLine commandLine = parser.parse(options, args);
+		
+		String dataDir = commandLine.getOptionValue('d', "z_data");
+		String savedDir = commandLine.getOptionValue('s', "saved_models");
+		
+		numExamples = Integer.parseInt(commandLine.getOptionValue('n', "1000"));
+		batchSize  = Integer.parseInt(commandLine.getOptionValue('b', "20"));
+		iterations = Integer.parseInt(commandLine.getOptionValue('i', "2"));
+		l_rate = Double.parseDouble(commandLine.getOptionValue('l', "1e-3"));
+		
+		
+		log.info("----------------------------------------");
+		log.info("Pamateters:");
+		log.info("Dataset folder: " + dataDir);
+		log.info("Saved model folder: " + savedDir);
+		log.info("Num of Examples: " + numExamples);
+		log.info("Batch size: " + batchSize);
+		log.info("Iterations: " + iterations);
+		log.info("Learning rate: " + l_rate);
+		log.info("Image size: " + height);
+		log.info("Normalization: 0 - 1") ;
+		log.info("----------------------------------------");
         log.info("Load data....");
+        
         /**
          * Data Setup -> organize and limit data file paths:
          *  - mainPath = path to image files
@@ -71,41 +111,26 @@ public class ImageFilteringModel {
          *  - pathFilter = define additional file load filter to limit size and balance batch content
          **/
         ParentPathLabelGenerator labelMaker = new ParentPathLabelGenerator();
-        File mainPath = new File(System.getProperty("user.dir"), "im_data/");
+        File mainPath = new File(System.getProperty("user.dir"), dataDir);
         FileSplit fileSplit = new FileSplit(mainPath, NativeImageLoader.ALLOWED_FORMATS, rng);
-        System.out.println(numExamples);
-        BalancedPathFilter pathFilter = new BalancedPathFilter(rng, labelMaker, numExamples, numLabels, 5600);
         
-        /**
-         * Data Setup -> train test split
-         *  - inputSplit = define train and test split
-         **/
-        System.out.println(numExamples);
-        InputSplit[] inputSplit = fileSplit.sample(pathFilter, numExamples * splitTrainTest, numExamples * (1 - splitTrainTest));
+        //BalancedPathFilter pathFilter = new BalancedPathFilter(rng, labelMaker, numExamples, numLabels, numExamples/2);
+        BalancedPathFilter pathFilter = new BalancedPathFilter(rng, labelMaker, numExamples/2);
+        
+        //- inputSplit = define train and test split
+        InputSplit[] inputSplit = fileSplit.sample(pathFilter, 75, 25);
         
         InputSplit trainData = inputSplit[0];
         InputSplit testData = inputSplit[1];
         
-        System.out.println("Num of train: " + trainData.length());
-        System.out.println("Num of test: " + testData.length());
+        log.info("Num of train: " + trainData.length());
+        log.info("Num of test: " + testData.length());
         
-        /**
-         * Data Setup -> normalization
-         *  - how to normalize images and generate large dataset to train on
-         **/
+        //using the image scale normalization 0 -255        
+        DataNormalization scaler = new ImagePreProcessingScaler(0,255);
         
-        ImageTransform cropTransform =  new ScaleImageTransform(null, 14);
-        ImageTransform resizeTransform =  new ResizeImageTransform(10, 14);
-        ImageTransform myTransform =  new MyImageTransform(null, 121,121,122);
-       
-        //DataNormalization scaler = new ImagePreProcessingScaler(0, 1 );
-        DataNormalization scaler = new NormalizerStandardize();
         
-        log.info("Build model....");
-
-        // Uncomment below to try AlexNet. Note change height and width to at least 100
-        //MultiLayerNetwork network = new AlexNet(height, width, channels, numLabels, seed, iterations).init();
-
+        log.info("Build model...."); 
         //Using Alexnet
         MultiLayerNetwork network = alexnetModel();
         network.init();
@@ -143,9 +168,7 @@ public class ImageFilteringModel {
         
         String loc2save;
         for( int i=1; i<epochs + 1; i++ ) {
-        	
         	network.fit(trainIter);
-        	
             log.info("*** Completed epoch {} ***", i);
             log.info("Evaluate model on dev set....");
             Evaluation eval = new Evaluation(2);
@@ -159,7 +182,7 @@ public class ImageFilteringModel {
             log.info("--- Dev Rec: " + eval.recall());
             log.info("--- Dev F1: " + eval.f1());
             log.info("-------------------------------");
-            loc2save = "saved_models/alex-dl4j-final-ep-" + i + ".zip";
+            loc2save = savedDir + "/alex-dl4j-ep-" + i + ".zip";
             
             //Updater: i.e., the state for Momentum, RMSProp, Adagrad etc. Save this if you want to train your network more in the future
             ModelSerializer.writeModel(network, loc2save, true);
@@ -193,7 +216,7 @@ public class ImageFilteringModel {
 
     
     public MultiLayerNetwork alexnetModel() {
-        /**
+    	/**
          * AlexNet model interpretation based on the original paper ImageNet Classification with Deep Convolutional Neural Networks
          * and the imagenetExample code referenced.
          * http://papers.nips.cc/paper/4824-imagenet-classification-with-deep-convolutional-neural-networks.pdf
@@ -203,25 +226,24 @@ public class ImageFilteringModel {
         double dropOut = 0.5;
 
         MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
-        	
             .seed(seed)
             .weightInit(WeightInit.DISTRIBUTION)
             .dist(new NormalDistribution(0.0, 0.01))
             .activation(Activation.RELU)
-            .updater(Updater.NESTEROVS)
+            .updater(Updater.SGD)
             .iterations(iterations)
             .gradientNormalization(GradientNormalization.RenormalizeL2PerLayer) // normalize to prevent vanishing or exploding gradients
             .optimizationAlgo(OptimizationAlgorithm.STOCHASTIC_GRADIENT_DESCENT)
-            .learningRate(1e-3)
+            .learningRate(l_rate)
             .biasLearningRate(1e-2*2)
             .learningRateDecayPolicy(LearningRatePolicy.Step)
             .lrPolicyDecayRate(0.1)
-            .lrPolicySteps(10)
+            .lrPolicySteps(100000)
             .regularization(true)
             .l2(5 * 1e-4)
             .momentum(0.9)
             .miniBatch(false)
-            .list()            
+            .list()
             .layer(0, convInit("cnn1", channels, 96, new int[]{11, 11}, new int[]{4, 4}, new int[]{3, 3}, 0))
             .layer(1, new LocalResponseNormalization.Builder().name("lrn1").build())
             .layer(2, maxPool("maxpool1", new int[]{3,3}))
@@ -243,15 +265,9 @@ public class ImageFilteringModel {
             .pretrain(false)
             .setInputType(InputType.convolutional(height, width, channels))
             .build();
+
         return new MultiLayerNetwork(conf);
 
-    }
-
-    //Get prediction of an input image 
-    public static Boolean getPrediction(String im_file, String model_path){
-    	//Load the pretrained model
-    	//Get prediction
-    	return true;
     }
     
     public static void main(String[] args)  {
